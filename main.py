@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 import database
 import random
 
@@ -7,19 +8,21 @@ import random
 class Window(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
-        width = '800'
-        height = '400'
+        self.width = 800
+        self.height = 400
         x = '200'
         y = '100'
-        self.geometry(f'{width}x{height}+{x}+{y}')
+        self.geometry(f'{str(self.width)}x{str(self.height)}+{x}+{y}')
         self.title('Age Of Gladiators')
+        self.configure(bg='blue')
+        self.resizable(False, False)
 
 class Label(tk.Label):
     def __init__(self, width=15, height=15, *args, **kwargs):
         tk.Label.__init__(self, width=width, height=height, justify='left', anchor='nw', *args, **kwargs)
     def update_current_state(self, ):
         self.configure(text='')
-
+#=======================================================================
 class Listbox(tk.Listbox):
     def __init__(self, list_to_display, **kwargs):
         self.list_to_display = list_to_display
@@ -64,11 +67,19 @@ class MarketListbox(Listbox):
         self.list_to_display = self.get_gladiators_to_show_from_gladiatorslist(
             self.gladiators_list)
 
-    def buy_gladiator(self, player, gladiators_list):
+    def buy_gladiator(self, player):
         selected_gladiator_name = self.get_selected_element()
         gladiator = self.elements_dict[selected_gladiator_name]
+        if player.gold<gladiator.price:
+            print('У вас недостаточно денег')
+            return
+
         gladiator.set_owner(player.name)
-        gladiators_list.update_data()
+        gladiator.save_gladiator_in_db()
+
+        player.gold-=gladiator.price
+        player.save_data()
+
         self.update_current_state()
 
 class LanistaListbox(Listbox):
@@ -85,7 +96,7 @@ class LanistaListbox(Listbox):
         selected_gladiator_name = self.get_selected_element()
         gladiator = self.elements_dict[selected_gladiator_name]
         gladiator.set_owner(None)
-        gladiators_list.update_data()
+        gladiator.save_gladiator_in_db()
         self.update_current_state()
 
     def get_gladiators_to_show_from_gladiatorslist(self, playername):
@@ -98,15 +109,25 @@ class LanistaListbox(Listbox):
 class EnemyChoiseListbox(Listbox):
     pass
 #==============================================================================================================
+class Text(tk.Text):
+    pass
+
+class FigthText(Text):
+    def __init__(self, *args, **kwargs):
+        Text.__init__(self, *args, width=60, height=20, **kwargs)
+
+
+#==============================================================================================================
 
 class Button(tk.Button):
     def __init__(self, width = 30, height = 2, *args, **kwargs):
         tk.Button.__init__(self, height = height, width = width, *args, **kwargs)
 
 class Frame(tk.Frame):
-    def __init__(self):
-        tk.Frame.__init__(self)
+    def __init__(self, *args, **kwargs):
+        tk.Frame.__init__(self, *args, height=window.height, width=window.width, **kwargs)
         self.create_elements()
+        self.grid_propagate(0)
 
     def create_elements(self):
         pass
@@ -149,6 +170,9 @@ class MainMenuFrame(Frame):
         self.to_gladiators = Button(
             master=self, text='Подготовка к следующему бою', command=lambda: frame_switcher.switch_to_frame(prepare_to_fight))
         self.to_gladiators.grid(column=2, row=0)
+        
+        #self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure((0,1,2), weight=1)
 
 class GladiatorsFrame(Frame):
     def create_elements(self):
@@ -161,7 +185,7 @@ class GladiatorsFrame(Frame):
 
         self.to_market_button = Button(
             master=self, text='В магазин', command=lambda: frame_switcher.switch_to_frame(market))
-        self.to_market_button.grid(column=3, row=0)
+        self.to_market_button.grid(column=2, row=0)
 
         self.to_market_button = Button(
             master=self, text='Вернуться', command=lambda: frame_switcher.switch_to_frame(main_menu))
@@ -170,6 +194,10 @@ class GladiatorsFrame(Frame):
         self.sell_gladiator_button = Button(master=self, text='Продать', command=lambda: UPDATER.operation(
             self.main_listbox.sell_gladiator(PLAYER, GLADIATORS_LIST)))
         self.sell_gladiator_button.grid(column=0, row=1)
+
+        
+        #self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure((0,1,2), weight=1)
 
 class MarketFrame(Frame):
     def create_elements(self):
@@ -189,8 +217,12 @@ class MarketFrame(Frame):
         self.main_listbox.grid(column=0, row=0)
 
         self.buy_gladiator_button = Button(master=self, text='Купить', command=lambda: UPDATER.operation(
-            self.main_listbox.buy_gladiator(PLAYER, GLADIATORS_LIST)))
+            self.main_listbox.buy_gladiator(PLAYER)))
         self.buy_gladiator_button.grid(column=0, row=1)
+
+        
+        #self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure((0,1,2), weight=1)
 
 class EnemyGladiatorsFrame(Frame):
     def create_elements(self):
@@ -204,6 +236,10 @@ class EnemyGladiatorsFrame(Frame):
         self.main_listbox = LanistaListbox(enemy.name, master=self, exportselection=False)
         self.main_listbox.bind('<<ListboxSelect>>', lambda event: self.show_listbox_information(self.main_listbox, self.main_information_label))
         self.main_listbox.grid(column=0, row=0)
+        
+        #self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure((0,1,2), weight=1)
+
 
 class PrepeareToFight(Frame):
     def create_elements(self):
@@ -224,15 +260,19 @@ class PrepeareToFight(Frame):
         self.to_menu_button = Button(
             master=self, text='Сразиться', command=lambda: FIGHT.start(self.main_listbox, self.enemy_choise_listbox))
         self.to_menu_button.grid(column=1, row=1)
+        
+        #self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure((0,1,2), weight=1)
 
 class FightScreen(Frame):
     def create_elements(self):
-        self.main_information_label = tk.Label(master=self)
-        self.main_information_label.pack()
+        self.fight_text_space = FigthText(master=self)
+        self.fight_text_space.grid(row=0, column=0)
 
         self.to_menu_button = Button(
         master=self, text='Вернуться', command=lambda: frame_switcher.switch_to_frame(main_menu))
-        self.to_menu_button.pack()
+        self.to_menu_button.grid(row=1, column=0)
+        self.grid_columnconfigure(0, weight=1)
 
 # Data:==============================================================================================================
 
@@ -255,6 +295,12 @@ class Gladiator:
 
     def set_owner(self, owner: str):
         self.owner = owner
+
+    def save_gladiator_in_db(self):
+        DATABASE.execute(f'''update gladiators
+                                SET name=?, attack_power=?, hp=?, owner=?, is_dead=?, level=?, price=?
+                                WHERE name = ?
+                                ''', (self.name, self.attack_power, self.hp, self.owner, self.is_dead, self.level, self.price, self.name))
 
 class GladiatorsList:
     def __init__(self) -> None:
@@ -287,12 +333,7 @@ class GladiatorsList:
             None)
         return gladiators_from_db_for_market
 
-    def update_data(self):
-        for gladiator in self.gladiator_list:
-            self.database.execute(f'''update gladiators
-                                    SET name=?, attack_power=?, hp=?, owner=?, is_dead=?, level=?, price=?
-                                    WHERE name = ?
-                                    ''', (gladiator.name, gladiator.attack_power, gladiator.hp, gladiator.owner, gladiator.is_dead, gladiator.level, gladiator.price, gladiator.name))
+    
 
 class Updater:
     def __init__(self, elements) -> None:
@@ -318,17 +359,22 @@ class FrameSwitcher:
 #==============================================================================================================
 
 class Lanista:
-    def __init__(self, name, money=1000) -> None:
+    def __init__(self, name) -> None:
         self.name = name
         self.gladiators_list = GLADIATORS_LIST.get_gladiators_from_db_for_player(self.name)
-        self.money=money
+        self.load_data() #lanista_data
+        self.gold = self.lanista_data[1]
+
+    def load_data(self):
+        select_from_db = DATABASE.execute('select * from lanista_data where name=?', (self.name,))
+        self.lanista_data = select_from_db[0]
         
 
     def get_random_gladiators(self):
         free_gladiators = GLADIATORS_LIST.get_gladiators_from_db_for_market()
         random_gladiator = random.randint(0, len(free_gladiators)-1)
         free_gladiators[random_gladiator].set_owner(self.name)
-        GLADIATORS_LIST.update_data()
+        free_gladiators[random_gladiator].save_gladiator_in_db()
 
     def choise_random_gladiator(self):
         self.gladiators_list = GLADIATORS_LIST.get_gladiators_from_db_for_player(self.name)
@@ -336,6 +382,8 @@ class Lanista:
         random_gladiator = self.gladiators_list[random_index]
         return random_gladiator
 
+    def save_data(self):
+        DATABASE.execute('update lanista_data SET gold=? where name=?', (self.gold,self.name))
 
 
     def __repr__(self):
@@ -370,7 +418,7 @@ class Fight:
             battle_result = self.fight(selected_gladiator, enemy_gladiator)
             if battle_result[0] == False:
                 battle_result = ('Все погибли.', battle_result[1])
-            fitght_screen.main_information_label.configure(text=f'{battle_result[1]}\nПобедитель:{battle_result[0]}')
+            fitght_screen.fight_text_space.insert('end', f'{battle_result[1]}\nПобедитель:{battle_result[0]}')
 
 
     def fight(self, member_one, member_two):
@@ -403,12 +451,14 @@ class Fight:
         if winner:
             loser.is_dead = True
             winner.level+=1
-            GLADIATORS_LIST.update_data()
+            winner.save_gladiator_in_db()
+            loser.save_gladiator_in_db()
             UPDATER.update_elements()
         else:
             loser[0].is_dead = True
             loser[1].is_dead = True
-            GLADIATORS_LIST.update_data()
+            loser[0].save_gladiator_in_db()
+            loser[1].save_gladiator_in_db()
             UPDATER.update_elements()
 
 
