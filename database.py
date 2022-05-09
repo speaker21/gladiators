@@ -23,6 +23,8 @@ class Database:
         self.execute('update gladiators SET is_dead=?', (False,))
         self.execute('update gladiators SET winstreak=?', (0,))
         self.execute('update gladiators SET level=?', (1,))
+        self.execute('update gladiators SET hp=max_hp')
+
         self.execute('update lanista_data SET gold=?', (1000, ))
 
     def add_random_data(self):
