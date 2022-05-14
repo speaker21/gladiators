@@ -1,4 +1,5 @@
 /venv/*
 /static/*
-russian_names.json
+__pycache__
 tempCodeRunnerFile.py
+russian_names_full.json
